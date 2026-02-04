@@ -35,12 +35,11 @@ html, body {
 /* Contenedor Principal */
 .container {
     width: 1200px;
-    /* Eliminamos el scale de aquí para evitar conflictos */
     display: flex;
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
-    transition: transform 0.1s ease-out; /* Para que el cambio de tamaño sea suave */
+    transition: transform 0.1s ease-out;
 }
 
 /* ==========================================================================
@@ -73,7 +72,6 @@ html, body {
     text-align: center; 
 }
 
-/* MODIFICACIÓN: Color rojo para el contador de errores en la barra superior */
 .stat-item:nth-child(3) span {
     color: var(--error-color);
 }
@@ -148,14 +146,13 @@ input:checked + .slider:before { transform: translateX(18px); }
     font-weight: bold;
     color: #8b949e;
     transition: all 0.1s ease;
-    position: relative; /* Necesario para las rayitas F y J */
+    position: relative;
 }
 
 .row:first-child .key { justify-content: space-around; padding: 6px 0; font-size: 0.8rem; }
 .key.space { width: 380px; }
 .key.shift-left { width: 100px; }
 
-/* NUEVO: Guías táctiles para F y J */
 #key-f::after, #key-j::after {
     content: "";
     position: absolute;
@@ -167,7 +164,6 @@ input:checked + .slider:before { transform: translateX(18px); }
     border-radius: 2px;
 }
 
-/* NUEVO: Tecla pulsada por error */
 .key.key-wrong {
     background-color: var(--error-color) !important;
     color: white !important;
@@ -205,7 +201,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 .f5, .f6 { height: 60px; width: 50px; }
 
 /* ==========================================================================
-   MODALES (RESULTADOS Y AYUDA)
+   MODALES
    ========================================================================== */
 .modal {
     display: none;
@@ -231,9 +227,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 }
 
 .modal-content h2 { color: var(--accent-color); font-size: 2.2rem; margin: 0 0 20px 0; }
-
 .modal-results-container { margin-bottom: 25px; }
-
 .result-row {
     display: flex;
     justify-content: space-between;
@@ -242,13 +236,10 @@ input:checked + .slider:before { transform: translateX(18px); }
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.result-row:last-child { border-bottom: none; }
-
 .modal-label { color: var(--text-color); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
 .modal-value { color: white; font-size: 1.6rem; font-weight: bold; font-family: 'Courier New', monospace; }
-#final-errors{color: red;}
+#final-errors { color: var(--error-color); }
 
-/* Área de revisión de texto en modal */
 .modal-review-text {
     background: rgba(0, 0, 0, 0.2);
     padding: 20px;
@@ -266,7 +257,6 @@ input:checked + .slider:before { transform: translateX(18px); }
 .review-correct { color: var(--correct-color); }
 .review-error { color: var(--error-color); text-decoration: underline; background: rgba(248, 81, 73, 0.1); }
 
-/* Ayuda Steps */
 .help-step { 
     display: flex; 
     align-items: center; 
@@ -281,14 +271,9 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 .step-num { 
     background: var(--accent-color); 
-    width: 28px; 
-    height: 28px; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    border-radius: 50%; 
-    font-weight: bold; 
-    flex-shrink: 0;
+    width: 28px; height: 28px; 
+    display: flex; justify-content: center; align-items: center; 
+    border-radius: 50%; font-weight: bold; flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -308,19 +293,39 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 #reset-btn:hover { border-color: var(--accent-color); background: #30363d; }
 
-#help-btn { 
-    width: 40px; 
-    height: 40px; 
+/* UNIFICACIÓN DE BOTONES CIRCULARES (MUTE Y AYUDA) */
+#help-btn, #mute-btn { 
+    width: 42px; 
+    height: 42px; 
     border-radius: 50%; 
     border: 1px solid #444c56; 
     background: #21262d; 
     color: var(--accent-color); 
-    font-weight: bold; 
-    font-size: 1.2rem; 
+    font-size: 1.1rem; 
     cursor: pointer; 
     display: flex; 
     justify-content: center; 
     align-items: center; 
+    transition: all 0.2s ease;
+    padding: 0;
+    margin-left: 5px;
+}
+
+#help-btn:hover, #mute-btn:hover {
+    border-color: var(--accent-color);
+    background: #30363d;
+    transform: translateY(-2px);
+}
+
+/* Estilo específico para cuando el sonido está desactivado */
+#mute-btn.is-muted {
+    color: var(--error-color);
+    border-color: rgba(248, 81, 73, 0.4);
+    background: rgba(248, 81, 73, 0.05);
+}
+
+#mute-btn.is-muted:hover {
+    border-color: var(--error-color);
 }
 
 .modal-btn-alt, #close-modal-btn {

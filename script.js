@@ -1,6 +1,6 @@
 /**
- * MecaPro - Versión Actualizada 2026
- * Solución optimizada para tildes y gestión de estado.
+ * MecaPro - Versión Final Estabilizada + Control de Sonido
+ * Sin cambios en el posicionamiento CSS original.
  */
 
 // --- Variables de Estado ---
@@ -9,6 +9,7 @@ let fraseActual = "";
 let startTime = null;
 let totalTyped = 0;   
 let errorsCount = 0;  
+let isMuted = false; // Estado del sonido
 
 // --- Elementos del DOM ---
 const textDisplay = document.getElementById('text-display');
@@ -19,6 +20,11 @@ const errorsDisplay = document.getElementById('errors-display');
 const precisionDisplay = document.getElementById('precision');
 const resetBtn = document.getElementById('reset-btn');
 const toggleBackspace = document.getElementById('toggle-backspace');
+const errorSound = document.getElementById('error-sound');
+
+// Elementos Control Sonido
+const muteBtn = document.getElementById('mute-btn');
+const muteIcon = document.getElementById('mute-icon');
 
 // Modal Resultados
 const modal = document.getElementById('result-modal');
@@ -35,7 +41,7 @@ const helpModal = document.getElementById('help-modal');
 const closeHelpBtn = document.getElementById('close-help-btn');
 
 /**
- * Mapeo de teclas a dedos
+ * Mapeos de Teclado
  */
 const fingerMap = {
     'key-1': 1, 'key-q': 1, 'key-a': 1, 'key-z': 1, 'key-shift-left': 1,
@@ -52,21 +58,24 @@ const fingerMap = {
 };
 
 const fingerColors = {
-    1: 'f-pinky', 10: 'f-pinky',
-    2: 'f-ring',  9: 'f-ring',
-    3: 'f-middle', 8: 'f-middle',
-    4: 'f-index', 7: 'f-index',
+    1: 'f-pinky', 10: 'f-pinky', 2: 'f-ring', 9: 'f-ring',
+    3: 'f-middle', 8: 'f-middle', 4: 'f-index', 7: 'f-index',
     5: 'f-thumb', 6: 'f-thumb'
 };
 
+function reproducirError() {
+    // Solo se reproduce si isMuted es falso
+    if (errorSound && !isMuted) {
+        errorSound.currentTime = 0;
+        errorSound.play().catch(() => {});
+    }
+}
+
 function obtenerFraseNueva() {
     if (typeof listaFrases === 'undefined' || listaFrases.length === 0) {
-        fraseActual = "El archivo de frases no está cargado correctamente.";
-        return;
+        fraseActual = "Error de carga."; return;
     }
-    if (frasesDisponibles.length === 0) {
-        frasesDisponibles = [...listaFrases]; 
-    }
+    if (frasesDisponibles.length === 0) frasesDisponibles = [...listaFrases]; 
     const randomIndex = Math.floor(Math.random() * frasesDisponibles.length);
     fraseActual = frasesDisponibles.splice(randomIndex, 1)[0];
 }
@@ -81,19 +90,14 @@ function init() {
             textDisplay.appendChild(span);
         });
     }
-    
-    // Reset de estado
     hiddenInput.value = "";
     startTime = null;
     totalTyped = 0;
     errorsCount = 0;
-    
-    // Reset UI
     wpmDisplay.innerText = "0";
     kpmDisplay.innerText = "0";
     errorsDisplay.innerText = "0";
     precisionDisplay.innerText = "100";
-
     updateHighlights();
     hiddenInput.focus();
 }
@@ -104,29 +108,24 @@ function validarProgreso() {
     const userInput = hiddenInput.value;
     const chars = textDisplay.querySelectorAll('span');
 
-    userInput.split("").forEach((char, index) => {
-        if (index < chars.length) {
-            if (char === fraseActual[index]) {
-                chars[index].className = 'char-correct';
-            } else {
-                // Solo incrementa error si es un cambio nuevo y no estaba ya marcado
-                if (chars[index].className !== 'char-error') {
-                    errorsCount++;
-                }
-                chars[index].className = 'char-error';
+    chars.forEach((span, index) => {
+        const charTyped = userInput[index];
+        if (charTyped === undefined) {
+            span.className = ''; 
+        } else if (charTyped === fraseActual[index]) {
+            span.className = 'char-correct';
+        } else {
+            if (span.className !== 'char-error') {
+                errorsCount++;
+                reproducirError();
             }
+            span.className = 'char-error';
         }
     });
-
-    // Limpiar clases de caracteres no alcanzados aún
-    for (let i = userInput.length; i < chars.length; i++) {
-        chars[i].className = '';
-    }
 
     calculateStats();
     updateHighlights();
 
-    // Comprobar fin de frase
     if (userInput.length === fraseActual.length && fraseActual.length > 0) {
         mostrarResultados();
     }
@@ -146,16 +145,15 @@ function mostrarResultados() {
 
 function updateHighlights() {
     const chars = textDisplay.querySelectorAll('span');
-    // Normalizamos el valor para que las tildes muertas no muevan el cursor visualmente
     const cleanValue = hiddenInput.value.replace(/[´`¨^]/g, '');
     const currentIndex = cleanValue.length;
     
-    // Limpiar teclados y dedos
     const allColors = Object.values(fingerColors);
-    document.querySelectorAll('.key, .finger').forEach(el => el.classList.remove(...allColors, 'key-active'));
+    document.querySelectorAll('.key, .finger').forEach(el => el.classList.remove(...allColors));
+
+    chars.forEach(s => s.classList.remove('char-current'));
 
     if (currentIndex < chars.length) {
-        chars.forEach(s => s.classList.remove('char-current'));
         const spanActual = chars[currentIndex];
         spanActual.classList.add('char-current');
         
@@ -182,7 +180,6 @@ function updateHighlights() {
             }
         }
 
-        // Iluminar tecla de tilde si es vocal acentuada
         if (acentos[charLower]) {
             const tildeKey = document.getElementById('key-tilde');
             if (tildeKey) tildeKey.classList.add('f-pinky');
@@ -211,16 +208,11 @@ function calculateStats() {
     if (!startTime) return;
     const timeMins = (new Date() - startTime) / 60000;
     const typedLength = hiddenInput.value.length;
-    
-    // WPM: estándar de 5 caracteres por palabra
     const wpm = timeMins > 0 ? Math.round((typedLength / 5) / timeMins) : 0;
     const kpm = timeMins > 0 ? Math.round(typedLength / timeMins) : 0;
-    
     wpmDisplay.innerText = wpm;
     kpmDisplay.innerText = kpm;
     errorsDisplay.innerText = errorsCount;
-
-    // Precisión basada en el total de pulsaciones vs errores
     const acc = totalTyped > 0 ? Math.round(((totalTyped - errorsCount) / totalTyped) * 100) : 100;
     precisionDisplay.innerText = Math.max(0, acc);
 }
@@ -230,18 +222,33 @@ function generarRevisionFrase() {
     let html = "";
     for (let i = 0; i < fraseActual.length; i++) {
         const char = fraseActual[i] === " " ? "&nbsp;" : fraseActual[i];
-        if (userInput[i] === undefined) {
-            html += `<span>${char}</span>`;
-        } else if (userInput[i] === fraseActual[i]) {
-            html += `<span class="review-correct">${char}</span>`;
-        } else {
-            html += `<span class="review-error">${char}</span>`;
-        }
+        if (userInput[i] === undefined) html += `<span>${char}</span>`;
+        else if (userInput[i] === fraseActual[i]) html += `<span class="review-correct">${char}</span>`;
+        else html += `<span class="review-error">${char}</span>`;
     }
     modalReviewDisplay.innerHTML = html;
 }
 
 // --- EVENTOS ---
+
+// NUEVO: Lógica del Botón Mute
+if (muteBtn) {
+    muteBtn.addEventListener('click', () => {
+        isMuted = !isMuted;
+        
+        // Actualizamos icono y clase visual
+        if (isMuted) {
+            muteIcon.innerText = "🔇";
+            muteBtn.classList.add('is-muted');
+        } else {
+            muteIcon.innerText = "🔊";
+            muteBtn.classList.remove('is-muted');
+        }
+        
+        // Devolvemos el foco al input para seguir escribiendo
+        hiddenInput.focus();
+    });
+}
 
 hiddenInput.addEventListener('compositionend', () => {
     validarProgreso();
@@ -252,35 +259,26 @@ hiddenInput.addEventListener('input', (e) => {
         updateHighlights();
         return;
     }
-    // Solo contamos como pulsación si no es borrar
-    if (e.inputType !== "deleteContentBackward") {
-        totalTyped++;
-    }
+    if (e.inputType !== "deleteContentBackward") totalTyped++;
     validarProgreso();
 });
 
 hiddenInput.addEventListener('keydown', (e) => {
-    // Bloqueo de Backspace si el toggle está activo
     if (e.key === 'Backspace' && toggleBackspace.checked) {
         e.preventDefault();
         textDisplay.classList.add('shake');
         setTimeout(() => textDisplay.classList.remove('shake'), 200);
         return;
     }
+    if (e.key === 'Dead' || e.isComposing) return;
 
-    // Ignorar teclas muertas para la validación inmediata (se validan en input o compositionend)
-    if (e.isComposing || e.key === 'Dead') return;
-
-    // Feedback de tecla errónea (Visual)
     if (e.key.length === 1) { 
         const currentIndex = hiddenInput.value.length;
         const charCorrecto = fraseActual[currentIndex];
-
         if (charCorrecto && e.key !== charCorrecto) {
             let keyId = `key-${e.key.toLowerCase()}`;
             if (e.key === " ") keyId = "key-space";
             if (e.key === "ñ" || e.key === "Ñ") keyId = "key-ñ";
-            
             const keyElement = document.getElementById(keyId);
             if (keyElement) {
                 keyElement.classList.add('key-wrong');
@@ -290,39 +288,34 @@ hiddenInput.addEventListener('keydown', (e) => {
     }
 });
 
-// Modales y Control
 helpBtn.addEventListener('click', () => helpModal.style.display = "flex");
 closeHelpBtn.addEventListener('click', () => { helpModal.style.display = "none"; hiddenInput.focus(); });
 closeModalBtn.addEventListener('click', () => { modal.style.display = "none"; init(); });
 resetBtn.addEventListener('click', init);
 
-document.addEventListener('click', (e) => {
-    // Mantener el foco a menos que se interactúe con modales
+document.addEventListener('click', () => {
     if (modal.style.display !== "flex" && helpModal.style.display !== "flex") {
         hiddenInput.focus();
     }
 });
 
-// Responsividad - Ajuste de escala
+/**
+ * FUNCIÓN DE ESCALADO RESTAURADA (Original Segura)
+ */
 function ajustarEscala() {
     const container = document.querySelector('.container');
     if (!container) return;
-
     const anchoVentana = window.innerWidth;
     const altoVentana = window.innerHeight;
     const anchoBase = 1250; 
     const altoBase = 900;
 
     const escala = Math.min(
-        (anchoVentana * 0.95) / anchoBase,
-        (altoVentana * 0.95) / altoBase,
+        (anchoVentana * 0.9) / anchoBase,
+        (altoVentana * 0.9) / altoBase,
         1 
     );
-
-    container.style.transform = `translate(-50%, -50%) scale(${escala})`;
-    container.style.left = '50%';
-    container.style.top = '50%';
-    container.style.position = 'absolute';
+    container.style.transform = `scale(${escala})`;
 }
 
 window.addEventListener('resize', ajustarEscala);

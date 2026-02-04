@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MecaPro - Aprende Mecanografía</title>
     <link rel="stylesheet" href="style.css">
+    <audio id="error-sound" src="https://www.soundjay.com/buttons_c2026/sounds/beep-10.mp3" preload="auto"></audio>
 </head>
 <body>
 
@@ -24,6 +25,11 @@
             </div>
 
             <button id="reset-btn">Reiniciar Prueba</button>
+            
+            <button id="mute-btn" class="control-btn" title="Silenciar/Activar sonido">
+                <span id="mute-icon">🔊</span>
+            </button>
+            
             <button id="help-btn" title="Cómo funciona">?</button>
         </div>
 
@@ -164,7 +170,7 @@
         </div>
     </div>
 
-    <script src="frases.js?v=1.4"></script>
-    <script src="script.js?v=1.4"></script>
+    <script src="frases.js?v=1.5"></script>
+    <script src="script.js?v=1.5"></script>
 </body>
 </html>
