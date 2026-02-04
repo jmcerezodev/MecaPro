@@ -247,6 +247,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 .modal-label { color: var(--text-color); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
 .modal-value { color: white; font-size: 1.6rem; font-weight: bold; font-family: 'Courier New', monospace; }
+#final-errors{color: red;}
 
 /* Área de revisión de texto en modal */
 .modal-review-text {

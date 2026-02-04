@@ -1,5 +1,7 @@
 /**
- * MecaPro - Lógica Final con Feedback de Error Temporal Refinado
+ * MecaPro - Versión Final Optimizada
+ * Solución definitiva al problema de tildes en macOS/Windows.
+ * Cambios: Validación síncrona mediante compositionend, filtro de cursor y feedback de errores.
  */
 
 // --- Variables de Estado ---
@@ -93,11 +95,58 @@ function init() {
     hiddenInput.focus();
 }
 
+/**
+ * FUNCIÓN CRÍTICA: Valida el progreso del usuario
+ */
+function validarProgreso() {
+    if (!startTime && hiddenInput.value.length > 0) startTime = new Date();
+    
+    const userInput = hiddenInput.value;
+    const chars = textDisplay.querySelectorAll('span');
+
+    userInput.split("").forEach((char, index) => {
+        if (index < chars.length) {
+            if (char === fraseActual[index]) {
+                chars[index].className = 'char-correct';
+            } else {
+                if (index === userInput.length - 1 && chars[index].className !== 'char-error') {
+                    errorsCount++;
+                }
+                chars[index].className = 'char-error';
+            }
+        }
+    });
+
+    for (let i = userInput.length; i < chars.length; i++) {
+        chars[i].className = '';
+    }
+
+    calculateStats();
+    updateHighlights();
+
+    if (userInput.length === fraseActual.length && fraseActual.length > 0) {
+        setTimeout(() => {
+            finalPpm.innerText = wpmDisplay.innerText;
+            finalRpm.innerText = kpmDisplay.innerText;
+            finalErrors.innerText = errorsCount; 
+            finalPrecision.innerText = precisionDisplay.innerText;
+            generarRevisionFrase();
+            modal.style.display = "flex";
+            hiddenInput.blur();
+        }, 50);
+    }
+}
+
+/**
+ * Gestiona el cursor y las luces del teclado virtual
+ */
 function updateHighlights() {
     const chars = textDisplay.querySelectorAll('span');
-    const currentIndex = hiddenInput.value.length;
+    // Filtro para que el cursor no salte con caracteres muertos (tildes)
+    const cleanValue = hiddenInput.value.replace(/[´`¨^]/g, '');
+    const currentIndex = cleanValue.length;
+    
     const allColors = Object.values(fingerColors);
-
     document.querySelectorAll('.key, .finger').forEach(el => el.classList.remove(...allColors));
 
     if (currentIndex < chars.length) {
@@ -110,86 +159,88 @@ function updateHighlights() {
         let keyId = "";
         let needsShift = false;
 
-        const shiftSymbols = {
-            '!': 'key-1', '"': 'key-2', '$': 'key-4', '%': 'key-5',
-            '&': 'key-6', '/': 'key-7', '(': 'key-8', ')': 'key-9',
-            '=': 'key-0', '?': 'key-question-open', '¿': 'key-exclamation-open',
-            ':': 'key-period', ';': 'key-comma', '_': 'key-dash'
-        };
-
         const normalSymbols = {
             ' ': 'key-space', '¡': 'key-exclamation-open', "'": 'key-question-open',
             ',': 'key-comma', '.': 'key-period', '-': 'key-dash', '´': 'key-tilde'
         };
 
-        if (shiftSymbols[char]) { keyId = shiftSymbols[char]; needsShift = true; }
-        else if (char !== charLower && !normalSymbols[char]) { needsShift = true; keyId = `key-${charLower}`; }
-        else if (normalSymbols[char]) { keyId = normalSymbols[char]; }
-        else { keyId = `key-${charLower}`; }
-
         const acentos = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u'};
+        
+        if (charLower === 'ñ') keyId = 'key-ñ';
+        else if (normalSymbols[char]) keyId = normalSymbols[char];
+        else {
+            const shiftSymbols = {'!': 'key-1', '"': 'key-2', '$': 'key-4', '%': 'key-5', '&': 'key-6', '/': 'key-7', '(': 'key-8', ')': 'key-9', '=': 'key-0', ':': 'key-period', ';': 'key-comma', '_': 'key-dash', '?': 'key-question-open', '¿': 'key-exclamation-open'};
+            if (shiftSymbols[char]) { keyId = shiftSymbols[char]; needsShift = true; }
+            else {
+                if (char !== charLower) needsShift = true;
+                keyId = `key-${acentos[charLower] || charLower}`;
+            }
+        }
+
         if (acentos[charLower]) {
             const tildeKey = document.getElementById('key-tilde');
             if (tildeKey) tildeKey.classList.add('f-pinky');
-            keyId = `key-${acentos[charLower]}`;
-            if (char !== charLower) needsShift = true;
         }
 
         const fingerIdx = fingerMap[keyId];
         const colorClass = fingerColors[fingerIdx];
 
         if (keyId && colorClass) {
-            const keyElement = document.getElementById(keyId);
-            const fingerElement = document.getElementById(`finger-${fingerIdx}`);
-            if (keyElement) keyElement.classList.add(colorClass);
-            if (fingerElement) fingerElement.classList.add(colorClass);
+            const keyEl = document.getElementById(keyId);
+            const fingerEl = document.getElementById(`finger-${fingerIdx}`);
+            if (keyEl) keyEl.classList.add(colorClass);
+            if (fingerEl) fingerEl.classList.add(colorClass);
         }
 
         if (needsShift) {
             const shiftL = document.getElementById('key-shift-left');
-            const fingerPinkyL = document.getElementById('finger-1');
+            const finger1 = document.getElementById('finger-1');
             if (shiftL) shiftL.classList.add('f-pinky');
-            if (fingerPinkyL) fingerPinkyL.classList.add('f-pinky');
+            if (finger1) finger1.classList.add('f-pinky');
         }
     }
 }
 
 function calculateStats() {
     if (!startTime) return;
-    const timeInMinutes = (new Date() - startTime) / 60000;
-    const wordsTyped = hiddenInput.value.length / 5;
-    wpmDisplay.innerText = timeInMinutes > 0 ? Math.round(wordsTyped / timeInMinutes) : 0;
-    const keysTyped = hiddenInput.value.length;
-    kpmDisplay.innerText = timeInMinutes > 0 ? Math.round(keysTyped / timeInMinutes) : 0;
+    const timeMins = (new Date() - startTime) / 60000;
+    const words = hiddenInput.value.length / 5;
+    wpmDisplay.innerText = timeMins > 0 ? Math.round(words / timeMins) : 0;
+    kpmDisplay.innerText = timeMins > 0 ? Math.round(hiddenInput.value.length / timeMins) : 0;
     errorsDisplay.innerText = errorsCount;
-    const accuracy = totalTyped > 0 ? Math.round(((totalTyped - errorsCount) / totalTyped) * 100) : 100;
-    precisionDisplay.innerText = Math.max(0, accuracy);
+    const acc = totalTyped > 0 ? Math.round(((totalTyped - errorsCount) / totalTyped) * 100) : 100;
+    precisionDisplay.innerText = Math.max(0, acc);
 }
 
 function generarRevisionFrase() {
     const userInput = hiddenInput.value;
-    let reviewHTML = "";
+    let html = "";
     for (let i = 0; i < fraseActual.length; i++) {
-        const charOriginal = fraseActual[i];
-        const charUsuario = userInput[i];
-        if (charUsuario === undefined) {
-            reviewHTML += `<span>${charOriginal}</span>`;
-        } else if (charUsuario === charOriginal) {
-            reviewHTML += `<span class="review-correct">${charOriginal}</span>`;
-        } else {
-            reviewHTML += `<span class="review-error">${charOriginal}</span>`;
-        }
+        if (userInput[i] === undefined) html += `<span>${fraseActual[i]}</span>`;
+        else if (userInput[i] === fraseActual[i]) html += `<span class="review-correct">${fraseActual[i]}</span>`;
+        else html += `<span class="review-error">${fraseActual[i]}</span>`;
     }
-    modalReviewDisplay.innerHTML = reviewHTML;
+    modalReviewDisplay.innerHTML = html;
 }
 
-// Lógica de Modales
-helpBtn.addEventListener('click', () => { helpModal.style.display = "flex"; });
-closeHelpBtn.addEventListener('click', () => { helpModal.style.display = "none"; hiddenInput.focus(); });
+// --- GESTIÓN DE EVENTOS ---
 
-// MANEJO DE TECLADO (Keydown) - Feedback Temporal
+// Clave para Mac: Valida justo cuando termina la composición de caracteres acentuados
+hiddenInput.addEventListener('compositionend', () => {
+    validarProgreso();
+});
+
+hiddenInput.addEventListener('input', (e) => {
+    // Si hay composición en curso, solo actualizamos luces (para mostrar qué vocal pulsar)
+    if (e.isComposing) {
+        updateHighlights();
+        return;
+    }
+    if (e.inputType !== "deleteContentBackward") totalTyped++;
+    validarProgreso();
+});
+
 hiddenInput.addEventListener('keydown', (e) => {
-    // 1. Bloquear retroceso
     if (e.key === 'Backspace' && toggleBackspace.checked) {
         e.preventDefault();
         textDisplay.classList.add('shake');
@@ -197,12 +248,18 @@ hiddenInput.addEventListener('keydown', (e) => {
         return;
     }
 
-    // 2. Feedback de error TEMPORAL (700ms)
+    // Filtro para Mac (Tildes/Composición)
+    if (e.isComposing || e.key === 'Dead' || e.key === '´' || e.key === '`') {
+        return; 
+    }
+
+    // Feedback visual de tecla incorrecta en el teclado virtual
     if (e.key.length === 1) { 
-        const currentIndex = hiddenInput.value.length;
+        const cleanValue = hiddenInput.value.replace(/[´`¨^]/g, '');
+        const currentIndex = cleanValue.length;
         const charCorrecto = fraseActual[currentIndex];
 
-        if (e.key !== charCorrecto) {
+        if (charCorrecto && e.key !== charCorrecto) {
             let keyId = `key-${e.key.toLowerCase()}`;
             if (e.key === " ") keyId = "key-space";
             if (e.key === ",") keyId = "key-comma";
@@ -212,10 +269,7 @@ hiddenInput.addEventListener('keydown', (e) => {
 
             const keyElement = document.getElementById(keyId);
             if (keyElement) {
-                // Añadimos la clase roja
                 keyElement.classList.add('key-wrong');
-                
-                // La quitamos automáticamente después de 700ms
                 setTimeout(() => {
                     keyElement.classList.remove('key-wrong');
                 }, 700);
@@ -224,47 +278,13 @@ hiddenInput.addEventListener('keydown', (e) => {
     }
 });
 
-hiddenInput.addEventListener('input', (e) => {
-    if (!startTime && hiddenInput.value.length > 0) startTime = new Date();
-    if (e.inputType !== "deleteContentBackward") { totalTyped++; }
-
-    const userInput = hiddenInput.value;
-    const chars = textDisplay.querySelectorAll('span');
-
-    userInput.split("").forEach((char, index) => {
-        if (index < chars.length) {
-            if (char === fraseActual[index]) {
-                chars[index].className = 'char-correct';
-            } else {
-                if (chars[index].className !== 'char-error') { errorsCount++; }
-                chars[index].className = 'char-error';
-            }
-        }
-    });
-
-    for (let i = userInput.length; i < chars.length; i++) chars[i].className = '';
-
-    calculateStats();
-    updateHighlights();
-
-    if (userInput.length === fraseActual.length && fraseActual.length > 0) {
-        finalPpm.innerText = wpmDisplay.innerText;
-        finalRpm.innerText = kpmDisplay.innerText;
-        finalErrors.innerText = errorsCount; 
-        finalPrecision.innerText = precisionDisplay.innerText;
-        generarRevisionFrase();
-        modal.style.display = "flex";
-        hiddenInput.blur(); 
-    }
-});
-
+helpBtn.addEventListener('click', () => helpModal.style.display = "flex");
+closeHelpBtn.addEventListener('click', () => { helpModal.style.display = "none"; hiddenInput.focus(); });
 closeModalBtn.addEventListener('click', () => { modal.style.display = "none"; init(); });
 resetBtn.addEventListener('click', init);
 
 document.addEventListener('click', () => {
-    if (modal.style.display !== "flex" && helpModal.style.display !== "flex") {
-        hiddenInput.focus();
-    }
+    if (modal.style.display !== "flex" && helpModal.style.display !== "flex") hiddenInput.focus();
 });
 
 window.addEventListener('load', init);
