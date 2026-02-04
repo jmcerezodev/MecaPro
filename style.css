@@ -25,23 +25,22 @@ html, body {
     padding: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden;
+    overflow: hidden; /* Prohibido el scroll */
     background-color: var(--bg-color);
     display: flex;
     justify-content: center;
-    align-items: center;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    align-items: center; /* Centrado absoluto */
 }
 
-/* Contenedor Principal Optimizado (Escalado para Macbook Air) */
+/* Contenedor Principal */
 .container {
     width: 1200px;
+    /* Eliminamos el scale de aquí para evitar conflictos */
     display: flex;
     flex-direction: column;
     align-items: center;
     flex-shrink: 0;
-    transform: scale(min(1, min(92vw / 1200, 92vh / 880)));
-    transform-origin: center center;
+    transition: transform 0.1s ease-out; /* Para que el cambio de tamaño sea suave */
 }
 
 /* ==========================================================================

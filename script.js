@@ -1,7 +1,6 @@
 /**
- * MecaPro - Versión Final Optimizada
- * Solución definitiva al problema de tildes en macOS/Windows.
- * Cambios: Validación síncrona mediante compositionend, filtro de cursor y feedback de errores.
+ * MecaPro - Versión Actualizada 2026
+ * Solución optimizada para tildes y gestión de estado.
  */
 
 // --- Variables de Estado ---
@@ -21,7 +20,7 @@ const precisionDisplay = document.getElementById('precision');
 const resetBtn = document.getElementById('reset-btn');
 const toggleBackspace = document.getElementById('toggle-backspace');
 
-// Elementos del Modal de Resultados
+// Modal Resultados
 const modal = document.getElementById('result-modal');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const finalPpm = document.getElementById('final-ppm');
@@ -30,13 +29,13 @@ const finalErrors = document.getElementById('final-errors');
 const finalPrecision = document.getElementById('final-precision');
 const modalReviewDisplay = document.getElementById('modal-review-display');
 
-// Elementos del Modal de Ayuda
+// Modal Ayuda
 const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const closeHelpBtn = document.getElementById('close-help-btn');
 
 /**
- * Mapeo de teclas a dedos y colores
+ * Mapeo de teclas a dedos
  */
 const fingerMap = {
     'key-1': 1, 'key-q': 1, 'key-a': 1, 'key-z': 1, 'key-shift-left': 1,
@@ -61,8 +60,8 @@ const fingerColors = {
 };
 
 function obtenerFraseNueva() {
-    if (typeof listaFrases === 'undefined') {
-        fraseActual = "Error al cargar frases.";
+    if (typeof listaFrases === 'undefined' || listaFrases.length === 0) {
+        fraseActual = "El archivo de frases no está cargado correctamente.";
         return;
     }
     if (frasesDisponibles.length === 0) {
@@ -82,10 +81,14 @@ function init() {
             textDisplay.appendChild(span);
         });
     }
+    
+    // Reset de estado
     hiddenInput.value = "";
     startTime = null;
     totalTyped = 0;
     errorsCount = 0;
+    
+    // Reset UI
     wpmDisplay.innerText = "0";
     kpmDisplay.innerText = "0";
     errorsDisplay.innerText = "0";
@@ -95,9 +98,6 @@ function init() {
     hiddenInput.focus();
 }
 
-/**
- * FUNCIÓN CRÍTICA: Valida el progreso del usuario
- */
 function validarProgreso() {
     if (!startTime && hiddenInput.value.length > 0) startTime = new Date();
     
@@ -109,7 +109,8 @@ function validarProgreso() {
             if (char === fraseActual[index]) {
                 chars[index].className = 'char-correct';
             } else {
-                if (index === userInput.length - 1 && chars[index].className !== 'char-error') {
+                // Solo incrementa error si es un cambio nuevo y no estaba ya marcado
+                if (chars[index].className !== 'char-error') {
                     errorsCount++;
                 }
                 chars[index].className = 'char-error';
@@ -117,6 +118,7 @@ function validarProgreso() {
         }
     });
 
+    // Limpiar clases de caracteres no alcanzados aún
     for (let i = userInput.length; i < chars.length; i++) {
         chars[i].className = '';
     }
@@ -124,30 +126,33 @@ function validarProgreso() {
     calculateStats();
     updateHighlights();
 
+    // Comprobar fin de frase
     if (userInput.length === fraseActual.length && fraseActual.length > 0) {
-        setTimeout(() => {
-            finalPpm.innerText = wpmDisplay.innerText;
-            finalRpm.innerText = kpmDisplay.innerText;
-            finalErrors.innerText = errorsCount; 
-            finalPrecision.innerText = precisionDisplay.innerText;
-            generarRevisionFrase();
-            modal.style.display = "flex";
-            hiddenInput.blur();
-        }, 50);
+        mostrarResultados();
     }
 }
 
-/**
- * Gestiona el cursor y las luces del teclado virtual
- */
+function mostrarResultados() {
+    setTimeout(() => {
+        finalPpm.innerText = wpmDisplay.innerText;
+        finalRpm.innerText = kpmDisplay.innerText;
+        finalErrors.innerText = errorsCount; 
+        finalPrecision.innerText = precisionDisplay.innerText;
+        generarRevisionFrase();
+        modal.style.display = "flex";
+        hiddenInput.blur();
+    }, 100);
+}
+
 function updateHighlights() {
     const chars = textDisplay.querySelectorAll('span');
-    // Filtro para que el cursor no salte con caracteres muertos (tildes)
+    // Normalizamos el valor para que las tildes muertas no muevan el cursor visualmente
     const cleanValue = hiddenInput.value.replace(/[´`¨^]/g, '');
     const currentIndex = cleanValue.length;
     
+    // Limpiar teclados y dedos
     const allColors = Object.values(fingerColors);
-    document.querySelectorAll('.key, .finger').forEach(el => el.classList.remove(...allColors));
+    document.querySelectorAll('.key, .finger').forEach(el => el.classList.remove(...allColors, 'key-active'));
 
     if (currentIndex < chars.length) {
         chars.forEach(s => s.classList.remove('char-current'));
@@ -177,6 +182,7 @@ function updateHighlights() {
             }
         }
 
+        // Iluminar tecla de tilde si es vocal acentuada
         if (acentos[charLower]) {
             const tildeKey = document.getElementById('key-tilde');
             if (tildeKey) tildeKey.classList.add('f-pinky');
@@ -204,10 +210,17 @@ function updateHighlights() {
 function calculateStats() {
     if (!startTime) return;
     const timeMins = (new Date() - startTime) / 60000;
-    const words = hiddenInput.value.length / 5;
-    wpmDisplay.innerText = timeMins > 0 ? Math.round(words / timeMins) : 0;
-    kpmDisplay.innerText = timeMins > 0 ? Math.round(hiddenInput.value.length / timeMins) : 0;
+    const typedLength = hiddenInput.value.length;
+    
+    // WPM: estándar de 5 caracteres por palabra
+    const wpm = timeMins > 0 ? Math.round((typedLength / 5) / timeMins) : 0;
+    const kpm = timeMins > 0 ? Math.round(typedLength / timeMins) : 0;
+    
+    wpmDisplay.innerText = wpm;
+    kpmDisplay.innerText = kpm;
     errorsDisplay.innerText = errorsCount;
+
+    // Precisión basada en el total de pulsaciones vs errores
     const acc = totalTyped > 0 ? Math.round(((totalTyped - errorsCount) / totalTyped) * 100) : 100;
     precisionDisplay.innerText = Math.max(0, acc);
 }
@@ -216,31 +229,38 @@ function generarRevisionFrase() {
     const userInput = hiddenInput.value;
     let html = "";
     for (let i = 0; i < fraseActual.length; i++) {
-        if (userInput[i] === undefined) html += `<span>${fraseActual[i]}</span>`;
-        else if (userInput[i] === fraseActual[i]) html += `<span class="review-correct">${fraseActual[i]}</span>`;
-        else html += `<span class="review-error">${fraseActual[i]}</span>`;
+        const char = fraseActual[i] === " " ? "&nbsp;" : fraseActual[i];
+        if (userInput[i] === undefined) {
+            html += `<span>${char}</span>`;
+        } else if (userInput[i] === fraseActual[i]) {
+            html += `<span class="review-correct">${char}</span>`;
+        } else {
+            html += `<span class="review-error">${char}</span>`;
+        }
     }
     modalReviewDisplay.innerHTML = html;
 }
 
-// --- GESTIÓN DE EVENTOS ---
+// --- EVENTOS ---
 
-// Clave para Mac: Valida justo cuando termina la composición de caracteres acentuados
 hiddenInput.addEventListener('compositionend', () => {
     validarProgreso();
 });
 
 hiddenInput.addEventListener('input', (e) => {
-    // Si hay composición en curso, solo actualizamos luces (para mostrar qué vocal pulsar)
     if (e.isComposing) {
         updateHighlights();
         return;
     }
-    if (e.inputType !== "deleteContentBackward") totalTyped++;
+    // Solo contamos como pulsación si no es borrar
+    if (e.inputType !== "deleteContentBackward") {
+        totalTyped++;
+    }
     validarProgreso();
 });
 
 hiddenInput.addEventListener('keydown', (e) => {
+    // Bloqueo de Backspace si el toggle está activo
     if (e.key === 'Backspace' && toggleBackspace.checked) {
         e.preventDefault();
         textDisplay.classList.add('shake');
@@ -248,43 +268,65 @@ hiddenInput.addEventListener('keydown', (e) => {
         return;
     }
 
-    // Filtro para Mac (Tildes/Composición)
-    if (e.isComposing || e.key === 'Dead' || e.key === '´' || e.key === '`') {
-        return; 
-    }
+    // Ignorar teclas muertas para la validación inmediata (se validan en input o compositionend)
+    if (e.isComposing || e.key === 'Dead') return;
 
-    // Feedback visual de tecla incorrecta en el teclado virtual
+    // Feedback de tecla errónea (Visual)
     if (e.key.length === 1) { 
-        const cleanValue = hiddenInput.value.replace(/[´`¨^]/g, '');
-        const currentIndex = cleanValue.length;
+        const currentIndex = hiddenInput.value.length;
         const charCorrecto = fraseActual[currentIndex];
 
         if (charCorrecto && e.key !== charCorrecto) {
             let keyId = `key-${e.key.toLowerCase()}`;
             if (e.key === " ") keyId = "key-space";
-            if (e.key === ",") keyId = "key-comma";
-            if (e.key === ".") keyId = "key-period";
-            if (e.key === "-") keyId = "key-dash";
             if (e.key === "ñ" || e.key === "Ñ") keyId = "key-ñ";
-
+            
             const keyElement = document.getElementById(keyId);
             if (keyElement) {
                 keyElement.classList.add('key-wrong');
-                setTimeout(() => {
-                    keyElement.classList.remove('key-wrong');
-                }, 700);
+                setTimeout(() => keyElement.classList.remove('key-wrong'), 500);
             }
         }
     }
 });
 
+// Modales y Control
 helpBtn.addEventListener('click', () => helpModal.style.display = "flex");
 closeHelpBtn.addEventListener('click', () => { helpModal.style.display = "none"; hiddenInput.focus(); });
 closeModalBtn.addEventListener('click', () => { modal.style.display = "none"; init(); });
 resetBtn.addEventListener('click', init);
 
-document.addEventListener('click', () => {
-    if (modal.style.display !== "flex" && helpModal.style.display !== "flex") hiddenInput.focus();
+document.addEventListener('click', (e) => {
+    // Mantener el foco a menos que se interactúe con modales
+    if (modal.style.display !== "flex" && helpModal.style.display !== "flex") {
+        hiddenInput.focus();
+    }
 });
 
-window.addEventListener('load', init);
+// Responsividad - Ajuste de escala
+function ajustarEscala() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+
+    const anchoVentana = window.innerWidth;
+    const altoVentana = window.innerHeight;
+    const anchoBase = 1250; 
+    const altoBase = 900;
+
+    const escala = Math.min(
+        (anchoVentana * 0.95) / anchoBase,
+        (altoVentana * 0.95) / altoBase,
+        1 
+    );
+
+    container.style.transform = `translate(-50%, -50%) scale(${escala})`;
+    container.style.left = '50%';
+    container.style.top = '50%';
+    container.style.position = 'absolute';
+}
+
+window.addEventListener('resize', ajustarEscala);
+window.addEventListener('load', () => {
+    ajustarEscala();
+    init();
+});
